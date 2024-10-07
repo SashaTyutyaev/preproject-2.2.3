@@ -15,12 +15,13 @@ import preproject222.repository.UserRepository;
 import starterProject.incomeClient_starter.client.IncomeClient;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class LoanServiceImpl implements LoanService {
-
 
     @Value("${loan.url}")
     private String url;
@@ -41,11 +42,11 @@ public class LoanServiceImpl implements LoanService {
 
         List<User> savedUsers = userRepository.findAllById(users.stream().map(User::getId).toList());
 
+        Map<Long, Integer> incomeMap = users.stream()
+                .collect(Collectors.toMap(User::getId, User::getIncome));
+
         for (User savedUser : savedUsers) {
-            users.stream()
-                    .filter(user -> user.getId().equals(savedUser.getId()))
-                    .findFirst()
-                    .ifPresent(user -> savedUser.setIncome(user.getIncome()));
+            savedUser.setIncome(incomeMap.get(savedUser.getId()));
         }
 
         userRepository.saveAllAndFlush(savedUsers);
