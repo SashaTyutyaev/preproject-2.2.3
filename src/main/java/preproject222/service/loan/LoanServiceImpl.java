@@ -39,15 +39,20 @@ public class LoanServiceImpl implements LoanService {
         List<User> users = objectMapper.readValue(incomeData, new TypeReference<>() {
         });
 
-        List<Long> ids = users.stream().map(User::getId).toList();
+        List<User> savedUsers = userRepository.findAllById(users.stream().map(User::getId).toList());
 
-        userRepository.findAllById(ids);
+        for (User savedUser : savedUsers) {
+            users.stream()
+                    .filter(user -> user.getId().equals(savedUser.getId()))
+                    .findFirst()
+                    .ifPresent(user -> savedUser.setIncome(user.getIncome()));
+        }
 
-        users.forEach(userRepository::saveAndFlush);
+        userRepository.saveAllAndFlush(savedUsers);
     }
 
     @Override
-    public Integer calculateLoan(Long id) throws JsonProcessingException {
+    public Integer calculateLoan(Long id) {
         int loanApprovedAmountByIncome = 0;
         int loanApprovedAmountByCarPrice = 0;
         User user = getUserById(id);
