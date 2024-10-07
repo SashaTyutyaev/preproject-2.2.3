@@ -11,7 +11,6 @@ import preproject222.exceptions.NotApprovedLoanException;
 import preproject222.exceptions.UserNotFoundException;
 import preproject222.model.User;
 import preproject222.repository.UserRepository;
-import preproject222.service.user.UserService;
 import starterProject.incomeClient_starter.client.IncomeClient;
 
 import java.util.List;
@@ -33,8 +32,6 @@ public class LoanServiceImpl implements LoanService {
     private final UserRepository userRepository;
     private final IncomeClient incomeClient;
     private final ObjectMapper objectMapper;
-    private final UserService userService;
-
 
     @Override
     public Integer calculateLoan(Long id) throws JsonProcessingException {
@@ -85,13 +82,6 @@ public class LoanServiceImpl implements LoanService {
         return user.getCar().getPrice() >= minimalCarPrice;
     }
 
-    private User getUserById(Long id) {
-        User user = userRepository.findById(id)
-                .orElseThrow(() -> new UserNotFoundException("User not found"));
-        log.info("Successfully get user with id {}", id);
-        return user;
-    }
-
     private void setIncomeToUsers(String url) throws JsonProcessingException {
         String incomeData = incomeClient.getDataAsString(url);
         List<User> users = objectMapper.readValue(incomeData, new TypeReference<>() {
@@ -100,7 +90,14 @@ public class LoanServiceImpl implements LoanService {
         for (User user : users) {
             User updatedUser = getUserById(user.getId());
             updatedUser.setIncome(user.getIncome());
-            userService.addUser(updatedUser);
+            userRepository.save(updatedUser);
         }
+    }
+
+    private User getUserById(Long id) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new UserNotFoundException("User not found"));
+        log.info("Successfully get user with id {}", id);
+        return user;
     }
 }
