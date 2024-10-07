@@ -3,6 +3,7 @@ package preproject222.service.loan;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -20,8 +21,7 @@ import java.util.List;
 @Slf4j
 public class LoanServiceImpl implements LoanService {
 
-    int loanApprovedAmountByIncome;
-    int loanApprovedAmountByCarPrice;
+
     @Value("${loan.url}")
     private String url;
     @Value("${loan.minimalIncome}")
@@ -33,9 +33,23 @@ public class LoanServiceImpl implements LoanService {
     private final IncomeClient incomeClient;
     private final ObjectMapper objectMapper;
 
+    @PostConstruct
+    private void setIncomeToUsers() throws JsonProcessingException {
+        String incomeData = incomeClient.getDataAsString(url);
+        List<User> users = objectMapper.readValue(incomeData, new TypeReference<>() {
+        });
+
+        List<Long> ids = users.stream().map(User::getId).toList();
+
+        userRepository.findAllById(ids);
+
+        users.forEach(userRepository::saveAndFlush);
+    }
+
     @Override
     public Integer calculateLoan(Long id) throws JsonProcessingException {
-        setIncomeToUsers(url);
+        int loanApprovedAmountByIncome = 0;
+        int loanApprovedAmountByCarPrice = 0;
         User user = getUserById(id);
         Boolean isApprovedIncome = checkUsersIncome(user);
         Boolean isApprovedCarPrice = checkUsersCarPrice(user);
@@ -65,39 +79,15 @@ public class LoanServiceImpl implements LoanService {
     }
 
     private Boolean checkUsersIncome(User user) {
-        if (user.getIncome() == null) {
-            loanApprovedAmountByIncome = 0;
-            return false;
-        }
-
-        return user.getIncome() >= minimalIncome;
+        return user.getIncome() != null && user.getIncome() >= minimalIncome;
     }
 
     private Boolean checkUsersCarPrice(User user) {
-        if (user.getCar() == null) {
-            loanApprovedAmountByCarPrice = 0;
-            return false;
-        }
-
-        return user.getCar().getPrice() >= minimalCarPrice;
-    }
-
-    private void setIncomeToUsers(String url) throws JsonProcessingException {
-        String incomeData = incomeClient.getDataAsString(url);
-        List<User> users = objectMapper.readValue(incomeData, new TypeReference<>() {
-        });
-
-        for (User user : users) {
-            User updatedUser = getUserById(user.getId());
-            updatedUser.setIncome(user.getIncome());
-            userRepository.save(updatedUser);
-        }
+        return user.getCar() != null && user.getCar().getPrice() >= minimalCarPrice;
     }
 
     private User getUserById(Long id) {
-        User user = userRepository.findById(id)
+        return userRepository.findById(id)
                 .orElseThrow(() -> new UserNotFoundException("User not found"));
-        log.info("Successfully get user with id {}", id);
-        return user;
     }
 }
